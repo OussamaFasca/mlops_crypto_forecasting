@@ -1,49 +1,75 @@
+"""
+This module goes through the complete pipeline
+to train the forecasting model
+"""
+from math import sqrt
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
-from math import sqrt
 from sklearn.metrics import mean_squared_error,r2_score,mean_absolute_error
 from pandas import DataFrame, Series
 
 #load data
 def load_data_from_url(url:str) -> DataFrame:
-    df = pd.read_csv(url)
-    return df
+    """
+    Loads data from yahoo finance url
+    """
+    dataset = pd.read_csv(url)
+    return dataset
 
-def initial_features_selection(df:DataFrame) -> DataFrame:
-    df.sort_values(by="Date")
-    df = df[["Close"]]
-    return df
+def initial_features_selection(dataset:DataFrame) -> DataFrame:
+    """
+    Choosing the initial columns to use for feature engineering
+    """
+    dataset.sort_values(by="Date")
+    dataset = dataset[["Close"]]
+    return dataset
 
-def create_time_series_features(df:DataFrame,n_inputs:int=7) -> DataFrame:
+def create_time_series_features(dataset:DataFrame,n_inputs:int=7) -> DataFrame:
+    """
+    Applying feature engineering to create the necessary features
+    for the time series.
+    """
     lista = []
-    for index in range(len(df.index) - n_inputs) :
-        obj = dict()
+    for index in range(len(dataset.index) - n_inputs) :
+        obj = {}
         for j in range(n_inputs):
-            obj[f"day_{j+1}"] = df.iloc[j+index]["Close"]
-        obj["target_day"] = df.iloc[n_inputs+index]["Close"]
+            obj[f"day_{j+1}"] = dataset.iloc[j+index]["Close"]
+        obj["target_day"] = dataset.iloc[n_inputs+index]["Close"]
         lista.append(obj)
     return pd.DataFrame(lista)
 
-def data_formating(df:DataFrame) -> DataFrame:
-    df = df.round()
-    df = df.astype("int")
-    return df
+def data_formating(dataset:DataFrame) -> DataFrame:
+    """
+    Formatting data
+    """
+    dataset = dataset.round()
+    dataset = dataset.astype("int")
+    return dataset
 
-def data_transformation(df:DataFrame) -> DataFrame:
-    df = df.apply(np.log)
-    return df
+def data_transformation(dataset:DataFrame) -> DataFrame:
+    """
+    Transforming target variable
+    """
+    dataset = dataset.apply(np.log)
+    return dataset
 
 
-def split_data(df:DataFrame,test_size:float = 0.2,random_state:int=42) -> tuple[DataFrame,DataFrame,Series,Series]:
-    x = df.drop(["target_day"],axis=1)
-    y = df["target_day"]
+def split_data(dataset:DataFrame,test_size:float = 0.2,random_state:int=42) -> tuple[DataFrame,DataFrame,Series,Series]:
+    """
+    Splitting Data into train and test set
+    """
+    x = dataset.drop(["target_day"],axis=1)
+    y = dataset["target_day"]
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=test_size, random_state=random_state)
-    return x_train, x_test, y_train, y_test 
+    return x_train, x_test, y_train, y_test
 
 def train_model(x_train:DataFrame, x_test:DataFrame, y_train:Series, y_test:Series) -> list:
+    """
+    Model training
+    """
     models = {
         "Random Forrest" : RandomForestRegressor(),
         "Linear Regression" : LinearRegression()
@@ -52,7 +78,7 @@ def train_model(x_train:DataFrame, x_test:DataFrame, y_train:Series, y_test:Seri
     for model,reg in models.items():
         reg.fit(x_train,y_train)
         y_pred = reg.predict(x_test)
-        obj = dict()
+        obj = {}
         obj["Model"] = model
         obj["R²"] = r2_score(y_test,y_pred)
         #y_test = np.exp(y_test)
@@ -66,20 +92,19 @@ def train_model(x_train:DataFrame, x_test:DataFrame, y_train:Series, y_test:Seri
 
 
 if __name__ == "__main__":
-    df = load_data_from_url("https://query1.finance.yahoo.com/v7/finance/download/BTC-USD?period1=1519603200&period2=1677369600&interval=1d&events=history&includeAdjustedClose=true")
+    dataset = load_data_from_url("https://query1.finance.yahoo.com/v7/finance/download/BTC-USD?period1=1519603200&period2=1677369600&interval=1d&events=history&includeAdjustedClose=true")
 
     # Feature Selection
-    df = initial_features_selection(df)
+    dataset = initial_features_selection(dataset)
 
     # Create Time Series Features
-    n_inputs = 7  # Number of input days to use for prediction
-    df = create_time_series_features(df, n_inputs)
+    dataset = create_time_series_features(dataset)
 
     # Data Formatting
-    df = data_formating(df)
+    dataset = data_formating(dataset)
 
     # Split Data into Train and Test Sets
-    x_train, x_test, y_train, y_test = split_data(df)
+    x_train, x_test, y_train, y_test = split_data(dataset)
 
     # Train Models and Evaluate Performance
     scores = train_model(x_train, x_test, y_train, y_test)
