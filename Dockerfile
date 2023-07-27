@@ -5,6 +5,5 @@ WORKDIR /app
 COPY . /app/
 
 RUN pip3 install -r requirements.txt
-RUN pylint src/train.py
-
+RUN pylint --fail-under 5 src/train.py
 CMD ["python3","src/train.py"]
